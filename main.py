@@ -1,36 +1,46 @@
-import sympy as sp
-import numpy as np
-import matplotlib.pyplot as plt
+from typing import cast
 
-def get_constant_c(func_f: sp.Function, x_interval: tuple, y_interval: tuple, expected_value: float = 1) -> float:
+import matplotlib.pyplot as plt
+import numpy as np
+import sympy as sp
+
+
+def get_constant_c(func_f: sp.Expr, x_interval: tuple, y_interval: tuple, x: sp.Symbol, y: sp.Symbol, c: sp.Symbol,
+                   expected_value: float = 1) -> sp.Expr | None:
     """
     Function for getting the c value, taken from that the formla: ∫∫ c * f(x,y) dx dy = 1, converted to c = 1 / ∫∫ f(x,y) dx dy
-    
+
     Parameters
     ----------
-    func_f: sp.Function 
-        the function f(x,y) to be integrated
+    func_f: sp.Expr
+        the function f(x,y) to be integrated (containing the unknown constant c)
     x_interval: tuple
         the interval for x, given as a tuple (x_min, x_max)
     y_interval: tuple
         the interval for y, given as a tuple (y_min, y_max)
+    x: sp.Symbol
+        the symbol for the variable x
+    y: sp.Symbol
+        the symbol for the variable y
+    c: sp.Symbol
+        the symbol of the unknown constant c that is solved for
     expected_value: float
         the expected value of the integral (default is 1)
 
     Returns
     -------
-    float
-        the value of c that satisfies the equation
+    sp.Expr | None
+        the value of c that satisfies the equation, or None if there is no solution
     """
     # calculate the integral and then return the c value
-    double_integral = sp.integrate(func_f, 
-                                   (y, y_interval[0], y_interval[1]), 
+    double_integral = sp.integrate(func_f,
+                                   (y, y_interval[0], y_interval[1]),
                                    (x, x_interval[0], x_interval[1]))       # result of this is function with 1 parameter c, so we can solve for c
     c_equation = sp.Eq(double_integral, expected_value)  # create eqasion (result of the dobule integral = expected_value (usualy 1))
-    c_solution = sp.solve(c_equation, c) # solve for c and if its legit then return it
-    return c_solution[0] if c_solution is not None else None
+    c_solution: list[sp.Expr] = sp.solve(c_equation, c)  # solve for c, sp.solve returns an empty list if there is no solution
+    return c_solution[0] if c_solution else None
 
-def get_marginal_density(func: sp.Function, interval: tuple, variable: sp.Symbol) -> sp.Function:
+def get_marginal_density(func: sp.Expr, interval: tuple, variable: sp.Symbol) -> sp.Expr:
     """
     Calculates the marginal density function from the joint density function. The formula is f_X(x) = ∫ f(x,y) dy (or f_Y(y) = ∫ f(x,y) dx),
     so we integrate out the other variable over the whole range where the joint density is nonzero.
@@ -58,10 +68,10 @@ def get_distribution_function(density_func: sp.Expr, interval: tuple, variable: 
     """
     Calculates the cumulative distribution function (CDF) from a density function. The formula is the ∫ f(x) dx where the f(x) is the marginal density function.
     The interval on witch is integrated is the lowest value that it can be and the top is not used.
-    
+
     Parameters
     ----------
-    density_func: sp.Expr 
+    density_func: sp.Expr
         the marginal density function f(x) or f(y)
     interval: tuple
         the interval for the variable, we need the lower bound (interval[0])
@@ -79,16 +89,16 @@ def get_distribution_function(density_func: sp.Expr, interval: tuple, variable: 
 if __name__ == "__main__":
 
     x, y, c = sp.symbols('x y c')
-    fnc: sp.Function = c * x * y                   # function to be investigated
+    fnc: sp.Expr = c * x * y                   # function to be investigated
 
     x_interval = (1, 2)              # intervals for random variables
     y_interval = (x, 2)
 
-    c_value = get_constant_c(fnc, x_interval, y_interval)
+    c_value = get_constant_c(fnc, x_interval, y_interval, x, y, c)
     print("Calculating the constant c for the function f(x,y) = c * x * y over the intervals x in [1, 2] and y in [x, 2]...")
     print(f"The constant c is: {c_value}")
 
-    fnc = fnc.subs(c, c_value)  # update the function with newlz get c value substitute the value of c into the function
+    fnc = cast(sp.Expr, fnc.subs(c, c_value))  # update the function with newlz get c value substitute the value of c into the function
 
     # ================================================== VIZULAIZATION OF THE FUNCTION ================================
 
@@ -116,7 +126,7 @@ if __name__ == "__main__":
     plt.show()
 
     # =================================================================================================================
-    
+
     # for x function we intergate y on what y can be (normal iterval)
     marginal_x = get_marginal_density(fnc, y_interval, y)
     marginal_y = get_marginal_density(fnc, (1, y), x)     # but here we must take into considiration that y is dependent on x (x < y) so we must put the itervat from
@@ -188,4 +198,3 @@ if __name__ == "__main__":
     print(f"cov(X,Y) = {cov_xy} ≈ {float(cov_xy):.5f}")
     print("Variation matrix:")
     sp.pprint(cov_matrix)
-    
