@@ -88,6 +88,8 @@ def get_distribution_function(density_func: sp.Expr, interval: tuple, variable: 
 
 if __name__ == "__main__":
 
+    # ================================================= 1. PART ======================================================
+
     x, y, c = sp.symbols('x y c')
     fnc: sp.Expr = c * x * y                   # function to be investigated
 
@@ -126,6 +128,8 @@ if __name__ == "__main__":
     plt.show()
 
     # =================================================================================================================
+
+    # ================================================= 2. PART ======================================================
 
     # for x function we intergate y on what y can be (normal iterval)
     marginal_x = get_marginal_density(fnc, y_interval, y)
@@ -169,6 +173,8 @@ if __name__ == "__main__":
 
     # =================================================================================================================
 
+    # ================================================= 3. PART ======================================================
+
     # middle vlaues: E[X] = ∫ x·f_X(x) dx, E[Y] = ∫ y·f_Y(y) dy, the iterval is all values that the variable can have
     E_x = sp.integrate(x * marginal_x, (x, 1, 2))
     E_y = sp.integrate(y * marginal_y, (y, 1, 2))
@@ -198,3 +204,5 @@ if __name__ == "__main__":
     print(f"cov(X,Y) = {cov_xy} ≈ {float(cov_xy):.5f}")
     print("Variation matrix:")
     sp.pprint(cov_matrix)
+
+
