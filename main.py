@@ -6,7 +6,7 @@ import sympy as sp
 
 
 def get_constant_c(func_f: sp.Expr, x_interval: tuple, y_interval: tuple, x: sp.Symbol, y: sp.Symbol, c: sp.Symbol,
-                   expected_value: float = 1) -> sp.Expr | None:
+                   expected_value: float = 1) -> float | None:
     """
     Function for getting the c value, taken from that the formla: ∫∫ c * f(x,y) dx dy = 1, converted to c = 1 / ∫∫ f(x,y) dx dy
 
@@ -37,7 +37,7 @@ def get_constant_c(func_f: sp.Expr, x_interval: tuple, y_interval: tuple, x: sp.
                                    (y, y_interval[0], y_interval[1]),
                                    (x, x_interval[0], x_interval[1]))       # result of this is function with 1 parameter c, so we can solve for c
     c_equation = sp.Eq(double_integral, expected_value)  # create eqasion (result of the dobule integral = expected_value (usualy 1))
-    c_solution: list[sp.Expr] = sp.solve(c_equation, c)  # solve for c, sp.solve returns an empty list if there is no solution
+    c_solution: list[float] = sp.solve(c_equation, c)  # solve for c, sp.solve returns an empty list if there is no solution
     return c_solution[0] if c_solution else None
 
 def get_marginal_density(func: sp.Expr, interval: tuple, variable: sp.Symbol) -> sp.Expr:
