@@ -1,9 +1,13 @@
-from typing import cast
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import TextIO, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-import sympy as sp
 import scipy.stats as st
+import sympy as sp
+
 
 def get_constant_c(func_f: sp.Expr, x_interval: tuple, y_interval: tuple, x: sp.Symbol, y: sp.Symbol, c: sp.Symbol,
                    expected_value: float = 1) -> float | None:
@@ -86,14 +90,14 @@ def get_distribution_function(density_func: sp.Expr, interval: tuple, variable: 
     distribution_function = sp.integrate(density_func, (variable, interval[0], variable))
     return distribution_function
 
-def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Symbol, 
-                            x_bounds: tuple, y_bounds: tuple, max_point: dict, 
+def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Symbol,
+                            x_bounds: tuple, y_bounds: tuple, max_point: dict,
                             domain_condition) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates random samples from a given 2D distribution using rejection sampling. Basily 2 numbers are generated, it is checked if they are alright with out intervals
     (fr us that y > x) and also with them are generated random z values, which are then compared to the results of the function and if the random z are smaller the numbers
     are accepted. These z values are generated so that we can simulate the distribution becouse if it was not there it would be even distribution.
-    
+
     Parameters
     ----------
     n_samples: int
@@ -120,15 +124,15 @@ def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Sy
     tuple[np.ndarray, np.ndarray]
         two numpy arrays containing the generated x and y samples
     """
-    
+
     # paramters for generation
     x_samples = []
     y_samples = []
 
     # this creates a fuction (program function) from mathematical function
     f_num = sp.lambdify((x, y), fnc, "numpy")
-    
-    # get the max value of the fuction using the provided max_point parameter, its in dictionary so that the 
+
+    # get the max value of the fuction using the provided max_point parameter, its in dictionary so that the
     # so that it can be added in parameters and its not dependent on what is the function
     max_f = float(fnc.subs(max_point))
 
@@ -161,8 +165,70 @@ def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Sy
     x_samples = np.array(x_samples[:n_samples])
     y_samples = np.array(y_samples[:n_samples])
     print(f"Succesfully generated {n_samples} random samples.")
-    
+
     return x_samples, y_samples
+
+def estimate_characteristics(x_samples: np.ndarray, y_samples: np.ndarray, alpha: float = 0.05) -> dict:
+    """
+    Estimates the means, variances and covariance from the generated samples and constructs the confidence intervals
+    for the means. The interval is avrage +- t_crit * sqrt(var / n), where t_crit is the quantile of the Student distribution.
+
+    Parameters
+    ----------
+    x_samples: np.ndarray
+        generated samples of the variable X
+    y_samples: np.ndarray
+        generated samples of the variable Y
+    alpha: float
+        the uncertainty of the confidence interval (default is 0.05, so we are 95% sure that the real mean is in the interval)
+
+    Returns
+    -------
+    dict
+        dictionary with keys n, mean_x, mean_y, var_x, var_y, cov_xy, cov_matrix, ci_x, ci_y
+        (ci_x and ci_y are tuples (lower bound, upper bound))
+    """
+    n = len(x_samples)
+
+    # the avrages and variations
+    mean_x = np.mean(x_samples)
+    mean_y = np.mean(y_samples)
+    # ddof=1 is a degree of freedom, that if this would not be here the fomula would use N in division, now N - 1 is used
+    # this is for getting the unbiased variation becouse randomly generated data are always going to have bias and we got average form
+    # randomly generated data
+    var_x = np.var(x_samples, ddof=1)
+    var_y = np.var(y_samples, ddof=1)
+
+    # create a 2x2 variation matrix
+    cov_matrix = np.cov(x_samples, y_samples)
+
+    # this is becouse we were doing random choosing we cant be sure that the point werent genrated
+    # randomly only in one part of the set (for exaple we would want an avrage male height se we be messuring 1000 people but we could randomly
+    # mesure 999 basketball players and Jonas which would make the avrage and all another stats pretty unaccurate)
+    # so we need to add a amount of uncertainty (alpha) so when the aplha is 0,05 we are 95% (0,95) sure that their avrage is close to the overall avrage
+    # The aplha is a paramter that says that how ciartan we want to be that in the interval is the avrage of the whole set
+    # so that when for the example with the height we get avrage of 1000 people, and we want to have a interval in witch is a avrage of the
+    # height of all poeple in the world
+    # basicly this is done so that we get from one value got from the random picking we get interval
+
+    # get the quantiol of the student distribution (searches table), it gives it 1 - alpha/2 and n - 1 samples becouse it is in the formula
+    t_crit = st.t.ppf(1 - alpha/2, df=n-1)
+
+    # this impments the formula for the interval bounaries of boundary = avrage +- t_form_student_dis * (sqr(var / number_of_samples))
+    half_width_x = t_crit * np.sqrt(var_x / n)
+    half_width_y = t_crit * np.sqrt(var_y / n)
+
+    return {
+        "n": n,
+        "mean_x": mean_x,
+        "mean_y": mean_y,
+        "var_x": var_x,
+        "var_y": var_y,
+        "cov_xy": cov_matrix[0, 1],
+        "cov_matrix": cov_matrix,
+        "ci_x": (mean_x - half_width_x, mean_x + half_width_x),
+        "ci_y": (mean_y - half_width_y, mean_y + half_width_y),
+    }
 
 '''def generate_random_samples_old(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Symbol) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -179,40 +245,40 @@ def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Sy
 
     """
     # paramters for generation
-       
+
     x_samples = []
     y_samples = []
-    
+
         # this creates a fuction (program function) from mathematical function
     f_num = sp.lambdify((x, y), fnc, "numpy")
-        
+
     # get the max value of the fuction (the x: 2, y: 2 is becouse the fnc is always getting bigger the bigger number it gets)
     max_f = float(fnc.subs({x: 2, y: 2}))
-    
+
     print("Generation of random samples...")
     while len(x_samples) < n_samples:
         # we generate the x and y values for the function
         x_cand = np.random.uniform(1, 2, n_samples)
         y_cand = np.random.uniform(1, 2, n_samples)
-    
+
         # we generate a z value that will filter out the small values gotten from the function
         u_cand = np.random.uniform(0, max_f, n_samples)
 
         # cut the values that do not ccomplish the conditin where y >= x (intervals)
         domain_mask = y_cand >= x_cand
-    
+
         # get the values from the function
         f_vals = f_num(x_cand[domain_mask], y_cand[domain_mask])
-    
+
         # take the filtered out values from the first condition and look if the randomly gen. value is smaller then the value gotten fro mfuction
         # and if it is the accept it, this is done so that the point that are being generated simulate the distibution of our function
         # if this would not be here it would basicly be a even distribution becouse everything would be of the same propability
         accept_mask = u_cand[domain_mask] <= f_vals
-    
+
         # add the samples that passed
         x_samples.extend(x_cand[domain_mask][accept_mask])
         y_samples.extend(y_cand[domain_mask][accept_mask])
-    
+
     # cut the array to our wanted amount of samples
     x_samples = np.array(x_samples[:n_samples])
     y_samples = np.array(y_samples[:n_samples])
@@ -220,7 +286,42 @@ def generate_random_samples(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Sy
 
     return x_samples, y_samples'''
 
+class Tee:
+    """
+    Writes everything to the console and to a file at the same time (like the unix command tee).
+    It is used as a replacement of sys.stdout, so every print() goes both to the console and to the log file.
+
+    Parameters
+    ----------
+    console: TextIO
+        the original output stream (sys.stdout)
+    file: TextIO
+        the opened log file
+    """
+    def __init__(self, console: TextIO, file: TextIO):
+        self.console = console
+        self.file = file
+
+    def write(self, text: str) -> None:
+        self.console.write(text)
+        self.file.write(text)
+
+    def flush(self) -> None:
+        self.console.flush()
+        self.file.flush()
+
 if __name__ == "__main__":
+    # all figures are also saved as pdf into this folder (next to this script), it is created if it does not exist
+    output_dir = Path(__file__).parent / "output"
+    output_dir.mkdir(exist_ok=True)
+
+    # everything that is printed is also written into the log file (it is overwritten on every run),
+    # utf-8 is needed because of the characters like ≈ or ∫ in the prints
+    log_file = open(output_dir / "log.txt", "w", encoding="utf-8")
+    original_stdout = sys.stdout
+    sys.stdout = cast(TextIO, Tee(original_stdout, log_file))      # cast is only for the type checker, Tee behaves like TextIO
+    print(f"Run from {datetime.now():%Y-%m-%d %H:%M:%S}")
+
     # ================================================================================================================
     # ================================================= 1. PART ======================================================
     print("\n" + "="*50)
@@ -250,18 +351,19 @@ if __name__ == "__main__":
     Z = f(X, Y)
     Z = np.where(Y >= X, Z, np.nan)
 
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure("Část 1: Sdružená hustota", figsize=(10, 8))      # the first argument is the window title
+    fig.suptitle(f"Část 1: Sdružená hustota f(x, y) = {fnc}", fontsize=14)
     ax1 = fig.add_subplot(111, projection="3d")
 
     ax1.plot_surface(X, Y, Z, cmap="viridis")
     ax1.set_xlabel("x")
     ax1.set_ylabel("y")
     ax1.set_zlabel("f(x, y)")
-    ax1.set_title("Density function f(x, y)")
 
     ax1.set_box_aspect(None, zoom=1.2)                      # zooms on 3D graph
     fig.subplots_adjust(left=0, right=1, bottom=0, top=0.95)
 
+    fig.savefig(output_dir / "part1_joint_density.pdf")
     plt.show()
 
     # ================================================================================================================
@@ -292,22 +394,25 @@ if __name__ == "__main__":
 
     t = np.linspace(1, 2, 200)
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), num="Část 2: Marginální funkce")     # num is the window title
+    fig.suptitle("Část 2: Marginální hustoty a distribuční funkce", fontsize=14)
 
     # Density
     axes[0].plot(t, f_x(t), label="f_X(x)")
     axes[0].plot(t, f_y(t), label="f_Y(y)")
-    axes[0].set_title("Marginal density")
+    axes[0].set_title("Marginální hustota")
     axes[0].legend()
     axes[0].grid(True)
 
     # distribution
     axes[1].plot(t, F_x(t), label="F_X(x)")
     axes[1].plot(t, F_y(t), label="F_Y(y)")
-    axes[1].set_title("Marginal distribution")
+    axes[1].set_title("Marginální distribuční funkce")
     axes[1].legend()
     axes[1].grid(True)
 
+    plt.tight_layout()
+    fig.savefig(output_dir / "part2_marginal_functions.pdf")
     plt.show()
 
     # ================================================================================================================
@@ -360,66 +465,180 @@ if __name__ == "__main__":
 
     # x_samples, y_samples = generate_random_samples(n_samples, fnc, x, y)
     x_samples, y_samples = generate_random_samples(
-        n_samples=n_samples, 
-        fnc=fnc, 
-        x=x, 
-        y=y, 
-        x_bounds=x_interval, 
-        y_bounds=x_interval, 
-        max_point={x: 2, y: 2}, 
+        n_samples=n_samples,
+        fnc=fnc,
+        x=x,
+        y=y,
+        x_bounds=x_interval,
+        y_bounds=x_interval,
+        max_point={x: 2, y: 2},
         domain_condition=interval_condition
     )
 
-    # ================================================================================================================   
+    # ================================================================================================================
     # ================================================= 5. PART ======================================================
     print("\n" + "="*50)
     print("5. PART: Findings from generated data")
     print("="*50)
 
-    # the avrages and variations
-    mean_x_est = np.mean(x_samples)
-    mean_y_est = np.mean(y_samples)
-    # ddof=1 is a degree of freedom, ift his woulnd not be here the fomula would use N in division, now N - 1 is used
-    # this is for getting the unbiased variation becouse randomly generated data are always going to have bias amd we got avrage form
-    # randomly generated data
-    var_x_est = np.var(x_samples, ddof=1) 
-    var_y_est = np.var(y_samples, ddof=1)
-    
-    # create a 2x2 vriation matrix
-    cov_matrix_est = np.cov(x_samples, y_samples)
-    cov_xy_est = cov_matrix_est[0, 1]
+    alpha = 0.05            # uncertainty of the confidence intervals (95% confidence)
+
+    est = estimate_characteristics(x_samples, y_samples, alpha)
+    ci_x = est["ci_x"]
+    ci_y = est["ci_y"]
 
     print("Point aproximation from the function:")
-    print(f"E[X] ≈ {mean_x_est:.4f}")
-    print(f"E[Y] ≈ {mean_y_est:.4f}")
-    print(f"Var[X] ≈ {var_x_est:.5f}")
-    print(f"Var[Y] ≈ {var_y_est:.5f}")
-    print(f"cov(X,Y) ≈ {cov_xy_est:.5f}")
+    print(f"E[X] ≈ {est['mean_x']:.4f}")
+    print(f"E[Y] ≈ {est['mean_y']:.4f}")
+    print(f"Var[X] ≈ {est['var_x']:.5f}")
+    print(f"Var[Y] ≈ {est['var_y']:.5f}")
+    print(f"cov(X,Y) ≈ {est['cov_xy']:.5f}")
     print("Variation matrix done from aproximation")
-    print(cov_matrix_est)
+    print(est["cov_matrix"])
 
-    # this is becouse we were doing random choosing we cant be sure that the point werent genrated
-    # randomly only in one part of the set (for exaple we would want an avrage male height se we be messuring 1000 people but we could randomly 
-    # mesure 999 basketball players and Jonas which would make the avrage and all another stats pretty unaccurate)
-    # so we need to add a amount of uncertainty (alpha) so when the aplha is 0,05 we are 95% (0,95) sure that their avrage is close to the overall avrage
-    # The aplha is a paramter that says that how ciartan we want to be that in the interval is the avrage of the whole set
-    # so that when for the example with the height we get avrage of 1000 people, and we want to have a interval in witch is a avrage of the
-    # height of all poeple in the world
-    # basicly this is done so that we get from one value got from the random picking we get interval
-    alpha = 0.05
-
-    # get the quantiol of the student distribution (searches table), it gives it 1 - alpha/2 and n - 1 samples becouse it is in the formula 
-    t_crit = st.t.ppf(1 - alpha/2, df=n_samples-1)
-
-    # this impments the formula for the interval bounaries of boundary = avrage +- t_form_student_dis * (sqr(var / number_of_samples))
-    ci_x = (mean_x_est - t_crit * np.sqrt(var_x_est / n_samples),
-            mean_x_est + t_crit * np.sqrt(var_x_est / n_samples))
-    ci_y = (mean_y_est - t_crit * np.sqrt(var_y_est / n_samples),
-            mean_y_est + t_crit * np.sqrt(var_y_est / n_samples))
-
-    conf_pct = (1 - alpha) * 100 
+    conf_pct = (1 - alpha) * 100
 
     print(f"\nInterval guess for avrage ({conf_pct:.0f}% confident interval):")
     print(f"IS for E[X]: ({ci_x[0]:.4f}, {ci_x[1]:.4f})")
     print(f"IS for E[Y]: ({ci_y[0]:.4f}, {ci_y[1]:.4f})")
 
+    # ================================================================================================================
+    # ================================================= 6. PART ======================================================
+    print("\n" + "="*50)
+    print("6. PART: Comparison with theoretical functions")
+    print("="*50)
+
+    # new figure is needed, the one from part 2 was already closed by plt.show()
+    # top row: histograms vs. marginal densities, bottom row: empirical CDFs vs. marginal distribution functions
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), num="Část 6: Porovnání s teorií")     # num is the window title
+    fig.suptitle(f"Část 6: Vygenerovaná data (n = {n_samples}) vs. teoretické funkce", fontsize=14)
+
+    # histogram vs. theoretical marginal density, density=True normalizes the histogram so that its area is 1,
+    # otherwise it would show counts and could not be compared with the density function
+    axes[0, 0].hist(x_samples, bins=30, density=True, alpha=0.6, label="histogram X")
+    axes[0, 0].plot(t, f_x(t), "r", label="f_X(x)")
+    axes[0, 0].set_title("X: histogram vs. marginální hustota")
+    axes[0, 0].legend()
+    axes[0, 0].grid(True)
+
+    axes[0, 1].hist(y_samples, bins=30, density=True, alpha=0.6, label="histogram Y")
+    axes[0, 1].plot(t, f_y(t), "r", label="f_Y(y)")
+    axes[0, 1].set_title("Y: histogram vs. marginální hustota")
+    axes[0, 1].legend()
+    axes[0, 1].grid(True)
+
+    # empirical distribution function (ECDF) vs. theoretical marginal distribution function,
+    # ECDF in point t is the fraction of samples that are <= t, the formula is F_n(t) = (1/n) * Σ 1(X_i <= t),
+    # where n is the number of samples and 1(X_i <= t) is 1 if the sample X_i is <= t, otherwise 0
+    axes[1, 0].ecdf(x_samples, label="ECDF X")
+    axes[1, 0].plot(t, F_x(t), "r", label="F_X(x)")
+    axes[1, 0].set_title("X: empirická vs. marginální distribuční funkce")
+    axes[1, 0].legend()
+    axes[1, 0].grid(True)
+
+    axes[1, 1].ecdf(y_samples, label="ECDF Y")
+    axes[1, 1].plot(t, F_y(t), "r", label="F_Y(y)")
+    axes[1, 1].set_title("Y: empirická vs. marginální distribuční funkce")
+    axes[1, 1].legend()
+    axes[1, 1].grid(True)
+
+    plt.tight_layout()
+    fig.savefig(output_dir / "part6_comparison_with_theory.pdf")
+    plt.show()
+
+    # ================================================================================================================
+    # ================================================= 7. PART ======================================================
+    print("\n" + "="*50)
+    print("7. PART: Dependence of the estimates on the sample size")
+    print("="*50)
+
+    # sample sizes for which the data are generated again and the estimates are computed
+    n_values = [10, 100, 1000, 10000, 100000]
+
+    results = []
+    for n in n_values:
+        xs_n, ys_n = generate_random_samples(
+            n_samples=n,
+            fnc=fnc,
+            x=x,
+            y=y,
+            x_bounds=x_interval,
+            y_bounds=x_interval,
+            max_point={x: 2, y: 2},
+            domain_condition=interval_condition
+        )
+        results.append(estimate_characteristics(xs_n, ys_n, alpha))
+
+    # theoretical values from part 3 converted from sympy to float, so they can be compared with the estimates
+    E_x_f, E_y_f = float(E_x), float(E_y)
+    var_x_f, var_y_f, cov_xy_f = float(var_x), float(var_y), float(cov_xy)
+
+    # ================================================ Print results =================================================
+
+    print(f"\nEstimates of the means and their {conf_pct:.0f}% confidence intervals:")
+    print(f"{'n':>8} | {'E[X] est':>9} | {'IS for E[X]':^16} | {'width':>8} | {'error':>8} || "
+          f"{'E[Y] est':>9} | {'IS for E[Y]':^16} | {'width':>8} | {'error':>8}")
+    for r in results:
+        width_x = r["ci_x"][1] - r["ci_x"][0]
+        width_y = r["ci_y"][1] - r["ci_y"][0]
+        print(f"{r['n']:>8} | {r['mean_x']:>9.4f} | ({r['ci_x'][0]:.4f}, {r['ci_x'][1]:.4f}) | {width_x:>8.5f} | "
+              f"{abs(r['mean_x'] - E_x_f):>8.5f} || "
+              f"{r['mean_y']:>9.4f} | ({r['ci_y'][0]:.4f}, {r['ci_y'][1]:.4f}) | {width_y:>8.5f} | "
+              f"{abs(r['mean_y'] - E_y_f):>8.5f}")
+    print(f"Theoretical values: E[X] = {E_x_f:.4f}, E[Y] = {E_y_f:.4f}")
+
+    print("\nEstimates of the variances and covariance:")
+    print(f"{'n':>8} | {'Var[X] est':>10} | {'error':>8} | {'Var[Y] est':>10} | {'error':>8} | {'cov est':>9} | {'error':>8}")
+    for r in results:
+        print(f"{r['n']:>8} | {r['var_x']:>10.5f} | {abs(r['var_x'] - var_x_f):>8.5f} | "
+              f"{r['var_y']:>10.5f} | {abs(r['var_y'] - var_y_f):>8.5f} | "
+              f"{r['cov_xy']:>9.5f} | {abs(r['cov_xy'] - cov_xy_f):>8.5f}")
+    print(f"Theoretical values: Var[X] = {var_x_f:.5f}, Var[Y] = {var_y_f:.5f}, cov(X,Y) = {cov_xy_f:.5f}")
+
+    # ================================================== VIZULAIZATION OF THE DEPENDENCE ON n ========================
+
+    ns = np.array([r["n"] for r in results])
+    means_x = np.array([r["mean_x"] for r in results])
+    means_y = np.array([r["mean_y"] for r in results])
+    # half widths of the intervals, used as error bars (the interval is mean +- half width)
+    half_x = np.array([(r["ci_x"][1] - r["ci_x"][0]) / 2 for r in results])
+    half_y = np.array([(r["ci_y"][1] - r["ci_y"][0]) / 2 for r in results])
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), num="Část 7: Závislost na n")     # num is the window title
+    fig.suptitle(f"Část 7: Závislost odhadů na rozsahu výběru n ({conf_pct:.0f}% intervaly spolehlivosti)", fontsize=14)
+
+    # estimates of the means with their confidence intervals, the dashed line is the theoretical value,
+    # the x axis is logarithmic because the n values grow 10 times each step
+    axes[0].errorbar(ns, means_x, yerr=half_x, fmt="o", capsize=4, label="odhad E[X]")
+    axes[0].axhline(E_x_f, color="r", linestyle="--", label="teoretická E[X]")
+    axes[0].set_xscale("log")
+    axes[0].set_xlabel("n")
+    axes[0].set_title("Odhad E[X]")
+    axes[0].legend()
+    axes[0].grid(True)
+
+    axes[1].errorbar(ns, means_y, yerr=half_y, fmt="o", capsize=4, label="odhad E[Y]")
+    axes[1].axhline(E_y_f, color="r", linestyle="--", label="teoretická E[Y]")
+    axes[1].set_xscale("log")
+    axes[1].set_xlabel("n")
+    axes[1].set_title("Odhad E[Y]")
+    axes[1].legend()
+    axes[1].grid(True)
+
+    # width of the interval is 2 * t_crit * sqrt(var / n), so it decreases like 1 / sqrt(n),
+    # in log-log scale this is a line with the slope -1/2 (10 times more data = about 3.16 times narrower interval)
+    axes[2].loglog(ns, 2 * half_x, "o-", label="šířka IS pro E[X]")
+    axes[2].loglog(ns, 2 * half_y, "s-", label="šířka IS pro E[Y]")
+    axes[2].loglog(ns, 2 * half_x[0] * np.sqrt(ns[0] / ns), "k--", label="~ 1/√n")
+    axes[2].set_xlabel("n")
+    axes[2].set_title("Šířka intervalu spolehlivosti")
+    axes[2].legend()
+    axes[2].grid(True, which="both")
+
+    plt.tight_layout()
+    fig.savefig(output_dir / "part7_dependence_on_n.pdf")
+    plt.show()
+
+    # return the original console output and close the log file
+    sys.stdout = original_stdout
+    log_file.close()
