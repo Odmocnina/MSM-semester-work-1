@@ -230,62 +230,6 @@ def estimate_characteristics(x_samples: np.ndarray, y_samples: np.ndarray, alpha
         "ci_y": (mean_y - half_width_y, mean_y + half_width_y),
     }
 
-'''def generate_random_samples_old(n_samples: int, fnc: sp.Expr, x: sp.Symbol, y: sp.Symbol) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generates random samples from a given 2D distribution using rejection sampling. Basily 2 numbers are generated, it is checked if they are alright with out intervals
-    (fr us that y > x) and also with them are generated random z values, which are then compared to the results of the function and if the random z are smaller the numbers
-    are accepted. These z values are generated so that we can simulate the distribution becouse if it was not there it would be even distribution.
-
-    Parameters
-    ----------
-    n_samples: int
-        number of random points to be generated
-    fnc: sp.Expr
-        distribution fuction we are inverstigating and where we want to generate the points
-
-    """
-    # paramters for generation
-
-    x_samples = []
-    y_samples = []
-
-        # this creates a fuction (program function) from mathematical function
-    f_num = sp.lambdify((x, y), fnc, "numpy")
-
-    # get the max value of the fuction (the x: 2, y: 2 is becouse the fnc is always getting bigger the bigger number it gets)
-    max_f = float(fnc.subs({x: 2, y: 2}))
-
-    print("Generation of random samples...")
-    while len(x_samples) < n_samples:
-        # we generate the x and y values for the function
-        x_cand = np.random.uniform(1, 2, n_samples)
-        y_cand = np.random.uniform(1, 2, n_samples)
-
-        # we generate a z value that will filter out the small values gotten from the function
-        u_cand = np.random.uniform(0, max_f, n_samples)
-
-        # cut the values that do not ccomplish the conditin where y >= x (intervals)
-        domain_mask = y_cand >= x_cand
-
-        # get the values from the function
-        f_vals = f_num(x_cand[domain_mask], y_cand[domain_mask])
-
-        # take the filtered out values from the first condition and look if the randomly gen. value is smaller then the value gotten fro mfuction
-        # and if it is the accept it, this is done so that the point that are being generated simulate the distibution of our function
-        # if this would not be here it would basicly be a even distribution becouse everything would be of the same propability
-        accept_mask = u_cand[domain_mask] <= f_vals
-
-        # add the samples that passed
-        x_samples.extend(x_cand[domain_mask][accept_mask])
-        y_samples.extend(y_cand[domain_mask][accept_mask])
-
-    # cut the array to our wanted amount of samples
-    x_samples = np.array(x_samples[:n_samples])
-    y_samples = np.array(y_samples[:n_samples])
-    print(f"Succesfully generated {n_samples} random samples.")
-
-    return x_samples, y_samples'''
-
 class Tee:
     """
     Writes everything to the console and to a file at the same time (like the unix command tee).
