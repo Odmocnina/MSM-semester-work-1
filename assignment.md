@@ -1,0 +1,40 @@
+Zadání úlohy 1 — KMA/MSM 2026/2027
+
+Téma: Vícerozměrné náhodné veličiny — generování a charakteristiky
+
+Zadáno: 6. 10. 2026 (přednáška 3)  |  Odevzdání: 27. 10. 2026
+Zadání
+
+Student/ka si zvolí jedno obecné dvourozměrné rozdělení ze cvičení MSMcv02, úloha 4 (nebo obdobné rozdělení se stejnou strukturou zadání — sdružená hustota s neznámou konstantou na obecné dvourozměrné oblasti), a na jeho příkladu provede následující kroky:
+
+    Určení neznámé konstanty
+        Určete konstantu c tak, aby f(x, y) byla platnou hustotou pravděpodobnosti.
+
+    Marginální rozdělení
+        Spočtěte marginální hustoty f_X, f_Y a marginální distribuční funkce F_X, F_Y.
+        Vykreslete spočtené marginální funkce hustoty a distribuční funkce.
+
+    Teoretické charakteristiky
+        Spočtěte střední hodnoty, rozptyly a kovarianci (variační matici) náhodného vektoru (X, Y).
+
+    Generování dat
+        Vygenerujte náhodný výběr ze zvoleného sdruženého rozdělení.
+
+    Odhady z generovaných dat
+        Odhadněte střední hodnoty, rozptyly a kovarianci z vygenerovaného výběru.
+        Zkonstruujte intervalové odhady pro střední hodnoty (příp. i pro rozptyly/kovarianci).
+
+    Porovnání s teoretickými funkcemi
+        Zkonstruujte histogramy a empirické distribuční funkce z vygenerovaných dat.
+        Zhodnoťte shodu histogramů a empirických distribučních funkcí se spočtenými teoretickými marginálními funkcemi hustoty a distribučními funkcemi (bod 2).
+
+    Závislost odhadu na rozsahu výběru
+        Ukažte, jak se přesnost (a šířka intervalového odhadu) mění v závislosti na počtu vygenerovaných dat — např. porovnáním výsledků pro několik různých rozsahů výběru (n).
+
+Software a odevzdání
+
+    Úlohu lze zpracovat v Pythonu nebo MATLABu; jiný software je možný jen po předchozí domluvě s vyučujícími.
+    Rozsah a forma odevzdávané práce (poster + kód) se řídí obecnými požadavky na semestrální práce.
+    Do STAGu odevzdává každý student/ka poster i kód v adresáři Prijmeni_jmeno_02; u dvojic oba stejnou verzi.
+
+Blanka Šedivá, KMA/MSM 2026/2027
