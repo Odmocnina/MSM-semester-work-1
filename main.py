@@ -540,6 +540,8 @@ if __name__ == "__main__":
     print(f"Theoretical values: Var[X] = {var_x_f:.5f}, Var[Y] = {var_y_f:.5f}, cov(X,Y) = {cov_xy_f:.5f}")
 
     # ================================================== VIZULAIZATION OF THE DEPENDENCE ON n ========================
+    # shown as one window with all three plots, but each subplot is also exported as its own
+    # pdf (via its bounding box) so they can be placed one under another in a narrow poster column
 
     ns = np.array([r["n"] for r in results])
     means_x = np.array([r["mean_x"] for r in results])
@@ -577,10 +579,33 @@ if __name__ == "__main__":
     axes[2].set_xlabel("n")
     axes[2].set_title("Šířka intervalu spolehlivosti")
     axes[2].legend()
-    axes[2].grid(True, which="both")
+    axes[2].grid(True, which="major")
 
     plt.tight_layout()
+    # extra horizontal spacing so that each subplot's own axis labels have room and do not
+    # reach into the neighbouring subplot once the plots below are exported individually
+    fig.subplots_adjust(wspace=0.5)
     fig.savefig(output_dir / "part7_dependence_on_n.pdf")
+
+    # export each subplot as its own pdf, cropped to its own bounding box (title, axes and legend included).
+    # the padding below can reach slightly past the subplot's own area, so the crop is additionally
+    # clamped to the midpoint between neighbouring subplots to make sure it can never bleed into them
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    fig_width_in, _ = fig.get_size_inches()
+    subplot_names = ["part7a_estimate_x", "part7b_estimate_y", "part7c_ci_width"]
+    for i, (ax, name) in enumerate(zip(axes, subplot_names)):
+        extent = ax.get_tightbbox(renderer).transformed(fig.dpi_scale_trans.inverted())
+        extent = extent.padded(0.1)
+
+        left_limit = 0.0 if i == 0 else (axes[i - 1].get_position().x1 + ax.get_position().x0) / 2 * fig_width_in
+        right_limit = fig_width_in if i == len(axes) - 1 else \
+            (ax.get_position().x1 + axes[i + 1].get_position().x0) / 2 * fig_width_in
+        extent.x0 = max(extent.x0, left_limit)
+        extent.x1 = min(extent.x1, right_limit)
+
+        fig.savefig(output_dir / f"{name}.pdf", bbox_inches=extent)
+
     plt.show()
 
     # return the original console output and close the log file
